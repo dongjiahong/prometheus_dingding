@@ -1,0 +1,7 @@
+#!/bin/bash
+echo "1. will fmt"
+cargo fmt
+echo "2. will check"
+cargo check --all
+echo "3. will test"
+cargo test --all-features --all 
