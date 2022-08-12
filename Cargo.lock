@@ -230,6 +230,8 @@ dependencies = [
  "serde_json",
  "time 0.3.13",
  "tokio",
+ "tower",
+ "tower-http",
  "tracing",
  "tracing-subscriber",
  "validator",
@@ -1354,6 +1356,7 @@ dependencies = [
  "tower",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]
