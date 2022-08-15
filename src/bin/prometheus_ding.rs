@@ -1,7 +1,9 @@
 use std::{net::SocketAddr, str::FromStr, time::Duration};
 
 use anyhow::Result;
-use axum::{error_handling::HandleErrorLayer, http::StatusCode, Router};
+use axum::{
+    error_handling::HandleErrorLayer, extract::Extension, http::StatusCode, routing::post, Router,
+};
 use clap::Parser;
 use ding::utils;
 use tokio::signal;
@@ -17,6 +19,12 @@ struct Args {
     #[clap(short, long)]
     #[validate(length(min = 1))]
     port: String,
+    #[clap(short, long)]
+    #[validate(length(min = 1))]
+    ding_url: String,
+    #[clap(short, long)]
+    #[validate(length(min = 1))]
+    title: String,
 }
 
 #[tokio::main]
@@ -25,7 +33,7 @@ async fn main() -> Result<()> {
 
     let args = Args::parse();
 
-    let app = Router::new().route("/warn", todo!()).layer(
+    let app = Router::new().route("/warn", post(ding::api::ding)).layer(
         ServiceBuilder::new()
             .layer(HandleErrorLayer::new(|error: BoxError| async move {
                 if error.is::<tower::timeout::error::Elapsed>() {
@@ -39,6 +47,8 @@ async fn main() -> Result<()> {
             }))
             .timeout(Duration::from_secs(30))
             .layer(TraceLayer::new_for_http())
+            .layer(Extension(args.ding_url))
+            .layer(Extension(args.title))
             .into_inner(),
     );
 
@@ -67,9 +77,6 @@ async fn shutdown_signal() {
             .recv()
             .await;
     };
-
-    #[cfg(not(unix))]
-    let terminate = std::future::pending::<()>();
 
     tokio::select! {
         _ = ctrl_c=> {},
