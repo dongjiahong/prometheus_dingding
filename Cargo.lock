@@ -225,6 +225,7 @@ dependencies = [
  "axum",
  "chrono",
  "clap",
+ "hyper",
  "reqwest",
  "serde",
  "serde_json",

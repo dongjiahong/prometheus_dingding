@@ -33,7 +33,7 @@ pub struct Alert {
     starts_at: String,
     #[serde(rename = "endsAt")]
     ends_at: String,
-    #[serde(rename = "gneratorURL")]
+    #[serde(rename = "generatorURL")]
     generator_url: String,
     fingerprint: String,
 }
@@ -41,13 +41,13 @@ pub struct Alert {
 #[derive(Serialize)]
 struct RequestBody<'a> {
     msgtype: &'a str,
-    markdown: Content<'a>,
+    text: Content<'a>,
 }
 
 #[derive(Serialize)]
 struct Content<'a> {
     title: &'a str,
-    text: String,
+    content: String,
 }
 
 #[derive(Serialize)]
@@ -82,7 +82,6 @@ impl<T> CustomResponse<T> {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Deserialize)]
 struct DingResp {
     errcode: i32,
@@ -91,21 +90,21 @@ struct DingResp {
 
 pub async fn ding(
     Json(input): Json<PrometeusPost>,
-    Extension(ding_url): Extension<String>,
-    Extension(title): Extension<String>,
+    Extension((title, ding_url)): Extension<(String, String)>,
 ) -> impl IntoResponse {
     if input.alerts.len() == 0 {
         info!("no alert will send!");
         return CustomResponse::<i32>::err("no alert").to_json();
     }
 
-    if let Ok(c) = serde_json::to_string(&input.alerts) {
+    if let Ok(c) = serde_json::to_string_pretty(&input.alerts) {
         match send(&ding_url, &title, c.as_str()).await {
             Ok(resp) => {
+                info!("send ding msg: {}", resp.errmsg);
                 return CustomResponse::<i32>::ok(Some(resp.errcode)).to_json();
             }
             Err(err) => {
-                error!("send ding ding err: {}", err);
+                error!("send ding ding err: {}, url: {}", err, ding_url);
                 return CustomResponse::<i32>::err(err.to_string().as_str()).to_json();
             }
         }
@@ -117,11 +116,11 @@ pub async fn ding(
 async fn send(ding_url: &str, title: &str, c: &str) -> Result<DingResp> {
     let content = Content {
         title,
-        text: c.to_string(),
+        content: c.to_string(),
     };
     let req_body = RequestBody {
-        msgtype: "markdown",
-        markdown: content,
+        msgtype: "text",
+        text: content,
     };
 
     let client = reqwest::Client::new();
