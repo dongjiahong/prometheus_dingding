@@ -79,24 +79,27 @@ async fn main() -> Result<()> {
 
     let args = Args::parse();
 
-    let app = Router::new().route("/warn", post(ding::api::ding)).layer(
-        ServiceBuilder::new()
-            .layer(HandleErrorLayer::new(|error: BoxError| async move {
-                if error.is::<tower::timeout::error::Elapsed>() {
-                    Ok(StatusCode::REQUEST_TIMEOUT)
-                } else {
-                    Err((
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("Unhandled internal error: {}", error),
-                    ))
-                }
-            }))
-            .timeout(Duration::from_secs(30))
-            .layer(TraceLayer::new_for_http())
-            .layer(middleware::from_fn(print_request_response))
-            .layer(Extension((args.title, args.ding_url)))
-            .into_inner(),
-    );
+    let app = Router::new()
+        .route("/ding/text", post(ding::api::ding_text))
+        .route("/ding/markdown", post(ding::api::ding_markdown))
+        .layer(
+            ServiceBuilder::new()
+                .layer(HandleErrorLayer::new(|error: BoxError| async move {
+                    if error.is::<tower::timeout::error::Elapsed>() {
+                        Ok(StatusCode::REQUEST_TIMEOUT)
+                    } else {
+                        Err((
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            format!("Unhandled internal error: {}", error),
+                        ))
+                    }
+                }))
+                .timeout(Duration::from_secs(30))
+                .layer(TraceLayer::new_for_http())
+                .layer(middleware::from_fn(print_request_response))
+                .layer(Extension((args.title, args.ding_url)))
+                .into_inner(),
+        );
 
     let addr = SocketAddr::from_str(format!("0.0.0.0:{}", args.port).as_str())?;
     info!("listen on {:?}", addr);

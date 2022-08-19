@@ -39,15 +39,27 @@ pub struct Alert {
 }
 
 #[derive(Serialize)]
-struct RequestBody<'a> {
+struct RequestBodyText<'a> {
     msgtype: &'a str,
-    text: Content<'a>,
+    text: ContentText<'a>,
 }
 
 #[derive(Serialize)]
-struct Content<'a> {
+struct ContentText<'a> {
     title: &'a str,
     content: String,
+}
+
+#[derive(Serialize)]
+struct RequestBodyMarkdown<'a> {
+    msgtype: &'a str,
+    markdown: ContentMarkdown<'a>,
+}
+
+#[derive(Serialize)]
+struct ContentMarkdown<'a> {
+    title: &'a str,
+    text: String,
 }
 
 #[derive(Serialize)]
@@ -88,7 +100,7 @@ struct DingResp {
     errmsg: String,
 }
 
-pub async fn ding(
+pub async fn ding_text(
     Json(input): Json<PrometeusPost>,
     Extension((title, ding_url)): Extension<(String, String)>,
 ) -> impl IntoResponse {
@@ -98,7 +110,7 @@ pub async fn ding(
     }
 
     if let Ok(c) = serde_json::to_string_pretty(&input.alerts) {
-        match send(&ding_url, &title, c.as_str()).await {
+        match send_text(&ding_url, &title, c.as_str()).await {
             Ok(resp) => {
                 info!("send ding msg: {}", resp.errmsg);
                 return CustomResponse::<i32>::ok(Some(resp.errcode)).to_json();
@@ -113,14 +125,67 @@ pub async fn ding(
     };
 }
 
-async fn send(ding_url: &str, title: &str, c: &str) -> Result<DingResp> {
-    let content = Content {
+async fn send_text(ding_url: &str, title: &str, c: &str) -> Result<DingResp> {
+    let content = ContentText {
         title,
         content: c.to_string(),
     };
-    let req_body = RequestBody {
+    let req_body = RequestBodyText {
         msgtype: "text",
         text: content,
+    };
+
+    let client = reqwest::Client::new();
+    let res = client
+        .post(ding_url)
+        .json(&req_body)
+        .send()
+        .await?
+        .json::<DingResp>()
+        .await?;
+    Ok(res)
+}
+
+pub async fn ding_markdown(
+    Json(input): Json<PrometeusPost>,
+    Extension((title, ding_url)): Extension<(String, String)>,
+) -> impl IntoResponse {
+    if input.alerts.len() == 0 {
+        info!("no alert will send!");
+        return CustomResponse::<i32>::err("no alert").to_json();
+    }
+
+    let mut mds = vec![];
+
+    for alert in &input.alerts {
+        mds.push(format!(
+            "## {}\n* summary:{}\n* description:{}\n",
+            alert.labels["alertname"],
+            alert.annotations["summary"],
+            alert.annotations["description"],
+        ));
+    }
+
+    match send_markdown(&ding_url, &title, mds.join("\n").as_str()).await {
+        Ok(resp) => {
+            info!("send ding msg: {}", resp.errmsg);
+            return CustomResponse::<i32>::ok(Some(resp.errcode)).to_json();
+        }
+        Err(err) => {
+            error!("send ding ding err: {}, url: {}", err, ding_url);
+            return CustomResponse::<i32>::err(err.to_string().as_str()).to_json();
+        }
+    }
+}
+
+async fn send_markdown(ding_url: &str, title: &str, c: &str) -> Result<DingResp> {
+    let content = ContentMarkdown {
+        title,
+        text: c.to_string(),
+    };
+    let req_body = RequestBodyMarkdown {
+        msgtype: "markdown",
+        markdown: content,
     };
 
     let client = reqwest::Client::new();
