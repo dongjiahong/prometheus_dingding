@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use axum::{response::IntoResponse, Extension, Json};
+use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
@@ -156,11 +157,13 @@ pub async fn ding_markdown(
     }
 
     let mut mds = vec![];
+    let local = Local::now().to_string();
 
     for alert in &input.alerts {
         mds.push(format!(
-            "## {}\n* summary:{}\n* description:{}\n",
+            "## {}: {}\n* summary:{}\n* description:{}\n",
             alert.labels["alertname"],
+            local,
             alert.annotations["summary"],
             alert.annotations["description"],
         ));
