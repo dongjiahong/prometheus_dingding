@@ -161,7 +161,7 @@ pub async fn ding_markdown(
 
     for alert in &input.alerts {
         mds.push(format!(
-            "## {}: {}\n* summary:{}\n* description:{}\n",
+            "## {}\n* date:{}\n* summary:{}\n* description:{}\n",
             alert.labels["alertname"],
             local,
             alert.annotations["summary"],
