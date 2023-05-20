@@ -158,6 +158,7 @@ pub async fn ding_markdown(
 
     let mut mds = vec![];
     let local = Local::now().to_string();
+    let mut custom_ding_url = ding_url.clone();
 
     for alert in &input.alerts {
         mds.push(format!(
@@ -167,15 +168,19 @@ pub async fn ding_markdown(
             alert.annotations["summary"],
             alert.annotations["description"],
         ));
+        if alert.annotations.contains_key("ding_url") {
+            let url = alert.annotations["ding_url"].clone();
+            custom_ding_url = url;
+        }
     }
 
-    match send_markdown(&ding_url, &title, mds.join("\n").as_str()).await {
+    match send_markdown(&custom_ding_url, &title, mds.join("\n").as_str()).await {
         Ok(resp) => {
             info!("send ding msg: {}", resp.errmsg);
             return CustomResponse::<i32>::ok(Some(resp.errcode)).to_json();
         }
         Err(err) => {
-            error!("send ding ding err: {}, url: {}", err, ding_url);
+            error!("send ding ding err: {}, url: {}", err, custom_ding_url);
             return CustomResponse::<i32>::err(err.to_string().as_str()).to_json();
         }
     }
